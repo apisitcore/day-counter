@@ -1,7 +1,7 @@
 export const HeaderConstants = {
-  JSON_HEADERS: { "content-type": "application/json" },
+  JSON_HEADERS: { "Content-Type": "application/json" },
   IMAGE_HEADERS: {
-    "content-type": "image/png",
-    "cache-control": "public, max-age=300",
+    "Content-Type": "image/webp",
+    "Cache-Control": "public, max-age=300",
   },
 } as const;

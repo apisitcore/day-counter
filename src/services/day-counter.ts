@@ -1,37 +1,12 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { createCanvas, Image, loadImage } from "@napi-rs/canvas";
+import { createCanvas } from "@napi-rs/canvas";
 import { AppConstants } from "../constants/app";
 import { HeaderConstants } from "../constants/headers";
 import { RegexConstants } from "../constants/regex";
 import { TZConstants } from "../constants/tz";
 import { type Env } from "../env";
-
-let cachedImage: Image | null = null;
-let lastMtime = 0;
-let lastCheck = 0;
-
-const CHECK_INTERVAL = 5000; // 5 วินาที
-
-const getTemplate = async (): Promise<Image> => {
-  const now = Date.now();
-
-  if (now - lastCheck < CHECK_INTERVAL && cachedImage) {
-    return cachedImage;
-  }
-
-  lastCheck = now;
-
-  const file = Bun.file(AppConstants.TEMPLATE_PATH);
-  const stat = await file.stat();
-
-  if (!cachedImage || stat.mtimeMs !== lastMtime) {
-    const buffer = await file.arrayBuffer();
-    cachedImage = await loadImage(Buffer.from(buffer));
-    lastMtime = stat.mtimeMs;
-  }
-
-  return cachedImage;
-};
+import { getTemplate } from "../preload/template";
+import { Logs } from "../utils/log";
 
 export const dayCounter = async (
   env: Env,
@@ -40,6 +15,34 @@ export const dayCounter = async (
   const h = Number(searchParams.get(AppConstants.HEIGHT) ?? env.DEFAULT_HEIGHT);
   const w = Number(searchParams.get(AppConstants.WIDTH) ?? env.DEFAULT_WIDTH);
 
+  const buffer = await getCanvas(env, h, w);
+  return new Response(buffer as BodyInit, {
+    headers: HeaderConstants.IMAGE_HEADERS,
+  });
+};
+
+export const cachedCanvas: Map<string, Buffer<ArrayBufferLike>> = new Map();
+let lastGenCanvas: string;
+const getCanvas = async (env: Env, h: number, w: number) => {
+  const today = Temporal.Now.zonedDateTimeISO(TZConstants.TH)
+    .toPlainDate()
+    .toString();
+
+  if (lastGenCanvas !== today) {
+    lastGenCanvas = today;
+    cachedCanvas.clear();
+  }
+
+  const key = `${h}x${w}`;
+  if (!cachedCanvas.get(key)) {
+    cachedCanvas.set(key, await genCanvas(env, h, w));
+  }
+
+  return cachedCanvas.get(key);
+};
+
+const genCanvas = async (env: Env, h: number, w: number) => {
+  Logs.log("genCanvas");
   const template = await getTemplate();
 
   // ---- คำนวณ scale แบบ contain ----
@@ -76,12 +79,6 @@ export const dayCounter = async (
   const fontSize = env.FONT_SIZE;
   ctx.font = `${fontSize}px ${AppConstants.FONT_NAME}`;
 
-  // ---- Shadow ----
-  ctx.shadowColor = "rgba(0,0,0,0.35)";
-  ctx.shadowBlur = Math.max(2, Math.floor(fontSize * 0.08));
-  ctx.shadowOffsetX = Math.floor(fontSize * 0.06);
-  ctx.shadowOffsetY = Math.floor(fontSize * 0.06);
-
   const lines = getText(env);
 
   const lineHeight = fontSize * 1.2;
@@ -94,11 +91,44 @@ export const dayCounter = async (
     startY += lineHeight;
   }
 
-  const buffer = canvas.toBuffer("image/png");
+  const buffer = await canvas.encode("webp", 95);
+  return buffer;
+};
 
-  return new Response(buffer as BodyInit, {
-    headers: HeaderConstants.IMAGE_HEADERS,
-  });
+let cachedText: string[];
+let lastGenText: string;
+const getText = (env: Env) => {
+  const today = Temporal.Now.zonedDateTimeISO(TZConstants.TH)
+    .toPlainDate()
+    .toString();
+
+  if (lastGenText !== today) {
+    lastGenText = today;
+    cachedText = genText(env);
+  }
+
+  return cachedText;
+};
+
+const genText = (env: Env) => {
+  Logs.log("genText");
+
+  const personName1 = env.PERSON_NAME_1;
+  const personBirthday1 = calculate(env.PERSON_BIRTHDAY_1);
+  const personName2 = env.PERSON_NAME_2;
+  const personBirthday2 = calculate(env.PERSON_BIRTHDAY_2);
+  const anniversary = calculate(env.ANNIVERSARY);
+
+  return [
+    `${personName1} - ${personBirthday1.passed}`,
+    `${personName2} - ${personBirthday2.passed}`,
+    `Anniversary - ${anniversary.passed}`,
+    "",
+    "Countdown",
+    `${personName1} - ${personBirthday1.countdownDays}`,
+    `${personName2} - ${personBirthday2.countdownDays}`,
+    `Anniversary - ${anniversary.countdownDays}`,
+  ];
 };
 
 const calculate = (input: string) => {
@@ -148,23 +178,4 @@ const calculate = (input: string) => {
     passed: `${diffYMD.years}y${diffYMD.months}m${diffYMD.days}d | ${totalDays}d`,
     countdownDays: `${countdownDays}d`,
   };
-};
-
-const getText = (env: Env) => {
-  const personName1 = env.PERSON_NAME_1;
-  const personBirthday1 = calculate(env.PERSON_BIRTHDAY_1);
-  const personName2 = env.PERSON_NAME_2;
-  const personBirthday2 = calculate(env.PERSON_BIRTHDAY_2);
-  const anniversary = calculate(env.ANNIVERSARY);
-
-  return [
-    `${personName1} - ${personBirthday1.passed}`,
-    `${personName2} - ${personBirthday2.passed}`,
-    `Anniversary - ${anniversary.passed}`,
-    "",
-    "Countdown",
-    `${personName1} - ${personBirthday1.countdownDays}`,
-    `${personName2} - ${personBirthday2.countdownDays}`,
-    `Anniversary - ${anniversary.countdownDays}`,
-  ];
 };
