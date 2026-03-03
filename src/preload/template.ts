@@ -7,7 +7,7 @@ import { Logs } from "../utils/log";
 let cachedImage: Image | null = null;
 
 const loadTemplate = async (): Promise<Image> => {
-  Logs.load("Template");
+  Logs.log("load Template");
 
   const file = Bun.file(AppConstants.TEMPLATE_PATH);
   const buffer = await file.arrayBuffer();

@@ -1,6 +1,5 @@
 export const Logs = {
-  log: (...args: any) => log("log", args),
-  load: (...args: any) => log("load", args),
+  log: (...args: any) => log("LOG", args),
 };
 
 const getDateTime = () => {

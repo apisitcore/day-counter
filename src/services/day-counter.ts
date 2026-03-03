@@ -4,18 +4,26 @@ import { AppConstants } from "../constants/app";
 import { HeaderConstants } from "../constants/headers";
 import { RegexConstants } from "../constants/regex";
 import { TZConstants } from "../constants/tz";
-import { type Env } from "../env";
+import { Config } from "../preload";
 import { getTemplate } from "../preload/template";
 import { Logs } from "../utils/log";
 
 export const dayCounter = async (
-  env: Env,
   searchParams: URLSearchParams,
 ): Promise<Response> => {
-  const h = Number(searchParams.get(AppConstants.HEIGHT) ?? env.DEFAULT_HEIGHT);
-  const w = Number(searchParams.get(AppConstants.WIDTH) ?? env.DEFAULT_WIDTH);
+  const w = Number(
+    searchParams.get(AppConstants.WIDTH) ?? Config.DEFAULT_WIDTH,
+  );
+  const h = Number(
+    searchParams.get(AppConstants.HEIGHT) ?? Config.DEFAULT_HEIGHT,
+  );
 
-  const buffer = await getCanvas(env, h, w);
+  // iPhone 17 Pro Max 1320 x 2868
+  if (w > 1500 || h > 3000) {
+    return new Response("Unsupported size", { status: 400 });
+  }
+
+  const buffer = await getCanvas(w, h);
   return new Response(buffer as BodyInit, {
     headers: HeaderConstants.IMAGE_HEADERS,
   });
@@ -23,7 +31,7 @@ export const dayCounter = async (
 
 export const cachedCanvas: Map<string, Buffer<ArrayBufferLike>> = new Map();
 let lastGenCanvas: string;
-const getCanvas = async (env: Env, h: number, w: number) => {
+const getCanvas = async (w: number, h: number) => {
   const today = Temporal.Now.zonedDateTimeISO(TZConstants.TH)
     .toPlainDate()
     .toString();
@@ -33,15 +41,15 @@ const getCanvas = async (env: Env, h: number, w: number) => {
     cachedCanvas.clear();
   }
 
-  const key = `${h}x${w}`;
+  const key = `${w}x${h}`;
   if (!cachedCanvas.get(key)) {
-    cachedCanvas.set(key, await genCanvas(env, h, w));
+    cachedCanvas.set(key, await genCanvas(w, h));
   }
 
   return cachedCanvas.get(key);
 };
 
-const genCanvas = async (env: Env, h: number, w: number) => {
+const genCanvas = async (w: number, h: number) => {
   Logs.log("genCanvas");
   const template = await getTemplate();
 
@@ -76,10 +84,10 @@ const genCanvas = async (env: Env, h: number, w: number) => {
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
 
-  const fontSize = env.FONT_SIZE;
+  const fontSize = Config.FONT_SIZE;
   ctx.font = `${fontSize}px ${AppConstants.FONT_NAME}`;
 
-  const lines = getText(env);
+  const lines = getText();
 
   const lineHeight = fontSize * 1.2;
   const totalHeight = lines.length * lineHeight;
@@ -97,27 +105,27 @@ const genCanvas = async (env: Env, h: number, w: number) => {
 
 let cachedText: string[];
 let lastGenText: string;
-const getText = (env: Env) => {
+const getText = () => {
   const today = Temporal.Now.zonedDateTimeISO(TZConstants.TH)
     .toPlainDate()
     .toString();
 
   if (lastGenText !== today) {
     lastGenText = today;
-    cachedText = genText(env);
+    cachedText = genText();
   }
 
   return cachedText;
 };
 
-const genText = (env: Env) => {
+const genText = () => {
   Logs.log("genText");
 
-  const personName1 = env.PERSON_NAME_1;
-  const personBirthday1 = calculate(env.PERSON_BIRTHDAY_1);
-  const personName2 = env.PERSON_NAME_2;
-  const personBirthday2 = calculate(env.PERSON_BIRTHDAY_2);
-  const anniversary = calculate(env.ANNIVERSARY);
+  const personName1 = Config.PERSON_NAME_1;
+  const personBirthday1 = calculate(Config.PERSON_BIRTHDAY_1);
+  const personName2 = Config.PERSON_NAME_2;
+  const personBirthday2 = calculate(Config.PERSON_BIRTHDAY_2);
+  const anniversary = calculate(Config.ANNIVERSARY);
 
   return [
     `${personName1} - ${personBirthday1.passed}`,

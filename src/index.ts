@@ -1,12 +1,12 @@
-import { loadEnv } from "./env";
-import "./preload";
+import { Config } from "./preload";
 import { createServer } from "./server";
 import { Logs } from "./utils/log";
 
-const env = loadEnv();
-const server = createServer(env);
+const server = createServer();
 
-Logs.log(`Running in ${env.NODE_ENV} on http://${env.HOST}:${env.PORT}`);
+Logs.log(
+  `Running in ${Config.NODE_ENV} on http://${Config.HOST}:${Config.PORT}`,
+);
 
 const shutdown = () => {
   server.stop(true);

@@ -1,4 +1,4 @@
-import { RegexConstants } from "./constants/regex";
+import { RegexConstants } from "../constants/regex";
 
 export enum NodeEnv {
   development = "development",
