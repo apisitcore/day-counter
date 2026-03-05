@@ -9,9 +9,8 @@ let cachedImage: Image | null = null;
 const loadTemplate = async (): Promise<Image> => {
   Logs.log("load Template");
 
-  const file = Bun.file(AppConstants.TEMPLATE_PATH);
-  const buffer = await file.arrayBuffer();
-  cachedImage = await loadImage(buffer);
+  const bytes = await Bun.file(AppConstants.TEMPLATE_PATH).bytes();
+  cachedImage = await loadImage(bytes);
 
   cachedCanvas.clear();
   Logs.log("clear cachedCanvas");
