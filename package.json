@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "start": "bun dist/index.js",
+    "start:dev": "bun src/index.ts",
     "build": "bun build src/index.ts --outdir dist --target bun --minify --external @napi-rs/canvas",
     "build:docker": "docker buildx build --platform linux/amd64,linux/arm64 -t day-counter:latest --push ."
   },
