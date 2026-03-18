@@ -29,4 +29,4 @@ COPY --from=build /app/assets ./assets
 
 EXPOSE 3000
 
-CMD ["bun", "dist/index.js"]
+ENTRYPOINT ["bun", "dist/index.js"]
